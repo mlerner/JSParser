@@ -1,5 +1,4 @@
 # coding: utf8
-
 """
 .. module:: safeurl
     synopsis:: An SSRF protection library
@@ -15,17 +14,18 @@ from socket import gethostbyname_ex
 import re
 import netaddr
 import pycurl
-import StringIO
 
 # Python 2.7/3 urlparse
 try:
     # Python 2.7
     from urlparse import urlparse
     from urllib import quote
+    import StringIO
 except:
     # Python 3
     from urllib.parse import urlparse
     from urllib.parse import quote
+    from io import StringIO
 
 
 class InvalidOptionException(Exception):
@@ -55,6 +55,7 @@ class InvalidSchemeException(Exception):
 class Empty(object):
     pass
 
+
 # TODO: Remove this ugly hack!
 
 
@@ -82,7 +83,6 @@ class Options(object):
     """
     This object contains configuration options for safeurl.
     """
-
     def __init__(self):
         self._follow_location = False
         self._follow_location_limit = 0
@@ -93,17 +93,20 @@ class Options(object):
                 "ip": [],
                 "port": ["80", "443", "8080"],
                 "domain": [],
-                "scheme": ["http", "https"]},
+                "scheme": ["http", "https"]
+            },
             "blacklist": {
-                "ip": ["0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10",
-                       "127.0.0.0/8", "169.254.0.0/16",
-                       "172.16.0.0/12", "192.0.0.0/29", "192.0.2.0/24",
-                       "192.88.99.0/24", "192.168.0.0/16",
-                       "198.18.0.0/15", "198.51.100.0/24",
-                       "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4"],
+                "ip": [
+                    "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
+                    "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/29",
+                    "192.0.2.0/24", "192.88.99.0/24", "192.168.0.0/16",
+                    "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24",
+                    "224.0.0.0/4", "240.0.0.0/4"
+                ],
                 "port": [],
                 "domain": [],
-                "scheme": []}
+                "scheme": []
+            }
         }
 
     def getFollowLocation(self):
@@ -404,8 +407,8 @@ class Url(object):
         parts.ips = Url.resolveHostname(parts.hostname)
 
         # Validate the host
-        parts.hostname = Url.validateHostname(
-            parts.hostname, parts.ips, options)
+        parts.hostname = Url.validateHostname(parts.hostname, parts.ips,
+                                              options)
 
         if options.getPinDns():
             # Since we"re pinning DNS, we replace the host in the URL
@@ -415,8 +418,11 @@ class Url(object):
         # Rebuild the URL
         cleanUrl = Url.buildUrl(parts)
 
-        return {"originalUrl": str(url),
-                "cleanUrl": str(cleanUrl), "parts": parts}
+        return {
+            "originalUrl": str(url),
+            "cleanUrl": str(cleanUrl),
+            "parts": parts
+        }
 
     @staticmethod
     def validateScheme(scheme, options):
@@ -432,9 +438,10 @@ class Url(object):
         """
         # Whitelist always takes precedence over a blacklist
         if not options.isInList("whitelist", "scheme", scheme):
-            raise InvalidSchemeException("Provided scheme 'scheme' doesn't \
-                match whitelisted values: %s" % (
-                ", ".join(options.getList("whitelist", "scheme"))))
+            raise InvalidSchemeException(
+                "Provided scheme 'scheme' doesn't \
+                match whitelisted values: %s" %
+                (", ".join(options.getList("whitelist", "scheme"))))
 
         if options.isInList("blacklist", "scheme", scheme):
             raise InvalidSchemeException(
@@ -456,9 +463,10 @@ class Url(object):
         :rtype: int
         """
         if not options.isInList("whitelist", "port", port):
-            raise InvalidPortException("Provided port 'port' doesn't match \
-                whitelisted values: %s" % (
-                ", ".join(options.getList("whitelist", "port"))))
+            raise InvalidPortException(
+                "Provided port 'port' doesn't match \
+                whitelisted values: %s" %
+                (", ".join(options.getList("whitelist", "port"))))
 
         if options.isInList("blacklist", "port", port):
             raise InvalidPortException(
@@ -483,9 +491,10 @@ class Url(object):
         """
         # Check the host against the domain lists
         if not options.isInList("whitelist", "domain", hostname):
-            raise InvalidDomainException("Provided hostname 'hostname' doesn't match \
-            whitelisted values: %s" % (
-                ", ".join(options.getList("whitelist", "domain"))))
+            raise InvalidDomainException(
+                "Provided hostname 'hostname' doesn't match \
+            whitelisted values: %s" %
+                (", ".join(options.getList("whitelist", "domain"))))
 
         if options.isInList("blacklist", "domain", hostname):
             raise InvalidDomainException(
@@ -494,23 +503,25 @@ class Url(object):
         whitelistedIps = options.getList("whitelist", "ip")
 
         if len(whitelistedIps) != 0:
-            has_match = any(Url.cidrMatch(ip, wlip)
-                            for ip in ips for wlip in whitelistedIps)
+            has_match = any(
+                Url.cidrMatch(ip, wlip) for ip in ips
+                for wlip in whitelistedIps)
             if not has_match:
-                raise InvalidIPException("Provided hostname 'hostname' \
+                raise InvalidIPException(
+                    "Provided hostname 'hostname' \
                     resolves to '%s', which doesn't match whitelisted values: %s"
-                                         % (", ".join(ips),
-                                            ", ".join(whitelistedIps)))
+                    % (", ".join(ips), ", ".join(whitelistedIps)))
 
         blacklistedIps = options.getList("blacklist", "ip")
 
         if len(blacklistedIps) != 0:
-            has_match = any(Url.cidrMatch(ip, blip)
-                            for ip in ips for blip in blacklistedIps)
+            has_match = any(
+                Url.cidrMatch(ip, blip) for ip in ips
+                for blip in blacklistedIps)
             if has_match:
                 raise InvalidIPException("Provided hostname 'hostname' \
-                    resolves to '%s', which matches a blacklisted value: %s" % (
-                    ", ".join(ips), blacklistedIps))
+                    resolves to '%s', which matches a blacklisted value: %s" %
+                                         (", ".join(ips), blacklistedIps))
 
         return hostname
 
@@ -602,7 +613,6 @@ class SafeURL(object):
     """
     Core interface of module
     """
-
     def __init__(self, handle=None, options=None):
         self.setCurlHandle(handle)
 
@@ -694,8 +704,8 @@ class SafeURL(object):
 
             if self._options.getPinDns():
                 # Send a Host header
-                self._handle.setopt(pycurl.HTTPHEADER, [
-                                    "Host: %s" % url["parts"].hostname])
+                self._handle.setopt(pycurl.HTTPHEADER,
+                                    ["Host: %s" % url["parts"].hostname])
                 # The "fake" URL
                 self._handle.setopt(pycurl.URL, url["cleanUrl"])
 
@@ -707,7 +717,7 @@ class SafeURL(object):
                 self._handle.setopt(pycurl.URL, url["cleanUrl"])
 
             # Execute the cURL request
-            response = StringIO.StringIO()
+            response = StringIO()
             self._handle.setopt(pycurl.WRITEFUNCTION, response.write)
             self._handle.perform()
 
